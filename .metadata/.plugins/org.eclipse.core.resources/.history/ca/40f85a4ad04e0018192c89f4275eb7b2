@@ -1,0 +1,193 @@
+//This program facilitates playing the game 2048. It uses methods to display the board, to see if a direction can be 
+//moved, to move each direction (by squeezing out zeros and combining cells in that direction), to see if the game
+//has been won, to place a 2 or 4 in a random open space on the board, to see if the game board is in a state in 
+//which no more moves are possible, to display help, to undo the last move, to setup a new game, to save the high
+//score, to load the high score.
+//
+//Author: Martin Amos
+//Course: EECS 1510
+//Instructor: Dr. L. Thomas
+//Date: 27 April 2018
+
+
+import javafx.application.Application;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
+import javafx.scene.Scene;
+import javafx.stage.Stage;
+import javafx.scene.control.*;
+import javafx.scene.layout.GridPane;
+import javafx.scene.layout.VBox;
+import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.StackPane;
+import javafx.scene.text.Text;
+import javafx.scene.text.Font;
+
+
+public class GUI2048 extends Application
+{
+	static int[][] board = new int[4][4];
+	static int[][][] undoBoard = new int[10][4][4];
+	static Font font = new Font(40);
+	static int score = 0, undoScore = 0, movesMade = 0, highScore = 0;
+	
+	@Override //overriding the start method in the Application class
+	public void start(Stage primaryStage)
+	{
+		GridPane gPane = new GridPane();		//This grid pane will display the 4X4 board
+		GridPane Scores = new GridPane();		//This grid pane will contain score/move displays
+		BorderPane bPane = new BorderPane();	//This border pane will bet set in the scene
+		VBox vBox = new VBox();					//This vbox will contain the necessary buttons
+		Button btHelp = new Button("Help");		
+		Button btExit = new Button("Exit");
+		Button btSave = new Button("Save");
+		Button btLoad = new Button("Load");
+		
+		gPane.setPadding(new Insets(18, 18, 18, 18)); //Set the edge borders to 18 pixels
+		gPane.setHgap(18);
+		gPane.setVgap(18);
+		gPane.setAlignment(Pos.CENTER);
+		
+		Scores.add(new Text("High Score"), 0, 0);
+		Scores.add(new Text("Score"), 1, 0);
+		Scores.add(new Text("Moves"), 2, 0);
+		Scores.add(new Text(""+highScore), 0, 1);
+		Scores.add(new Text(""+score), 1, 1);
+		Scores.add(new Text(""+movesMade), 2, 1);
+		
+		
+		//setting all buttons to have the same preferred size
+		btHelp.setPrefWidth(80);btExit.setPrefWidth(80);btSave.setPrefWidth(80);btLoad.setPrefWidth(80);
+		vBox.getChildren().addAll(btHelp, btSave, btLoad, btExit);
+		
+		bPane.setCenter(gPane);
+		bPane.setLeft(vBox);
+		bPane.setTop(Scores);
+		
+		Scene Game = new Scene(bPane);
+		primaryStage.setTitle("2048");
+		primaryStage.setScene(Game);
+		primaryStage.show();
+	}
+	
+	public static void setupNewGame()
+	{
+		/* This method prepares the board for a new game by setting all cells to zero, then placing the 2 initial
+		 * numbers. The method then sets movesMade and score to zero.*/
+		
+		for (int row = 0; row < 4; row++)
+			for (int col = 0 ; col < 4; col++)
+				board[row][col] = 0;
+		placeNumbers();
+		placeNumbers();
+		movesMade = 0;
+		score = 0;
+	}
+	
+	public static void placeNumbers()
+	{
+		/* This method randomly picks an open space on the board and populates it with a number from the randomNumber
+		 * method. First the method cycles through the board array counting the numberOfBlanks it finds and recording
+		 * their positions in the array emptySpaces. Once all zero positions have been stored in emptySpaces, it 
+		 * generates a random number RNG from 0 up to the number of zeros 
+		 * found in the game board inclusive. It uses RNG as a position marker for emptySpaces. The location stored at
+		 * emptySpaces[RNG] is where the method places the number returned by randomNumber. */
+		
+		int numberOfBlanks = 0;				// counter for blanks
+		int[] emptySpaces = new int[16]; 		//create array of size equal to number of empty cells found
+		int positionZeroArray = 0, positionGameBoard = 0;
+		for (int row = 0; row < 4; row++)
+		{
+			for (int col = 0; col < 4; col++)
+			{
+				if (board[row][col] == 0) 	//When a zero is found, the location on the game board (0-15) is stored
+				{
+					emptySpaces[positionZeroArray] = positionGameBoard;	//record the board location in the emptySpaces array
+					positionZeroArray++;	//move to the next spot in the emptySpaces array
+					numberOfBlanks++;		//increment the count of blank spaces on the board
+				}
+				positionGameBoard++;	//whether a 0 is found or not, increment the board position counter
+			}
+		}
+		int randomPosition = (int)(Math.random()*numberOfBlanks); //generate a random number up to the numberOfBlanks
+		
+		/* The line below does much of the work of this method. It selects a random open position on the board
+		 * by going to randomPosition in the emptySpaces array which will hold the location of a position on the 
+		 * board that is currently empty. It determines the row by dividing the board position found in the emptySpaces
+		 * array by 4 and casting as an int, and determines the column by getting the value from emptySpaces and 
+		 * taking that value modulo 4 cast as an int. Then it populates that board position with randomNumber method*/
+		
+		board[(int)(emptySpaces[randomPosition]/4)][(int)(emptySpaces[randomPosition]%4)] = randomNumber();
+	} //end of placeNumbers
+	
+	public static int randomNumber()
+	{
+		/* This method generates and returns an int. 90% of the time that int is a 2 and the other 10% of the time
+		 * it is a 4. It does this by creating a random integer from 0 to 9. If that number is less than 9, it returns
+		 * a 2, otherwise it returns a 4.*/
+		
+		int RNG = (int)(Math.random()*10);
+		if (RNG < 9)
+			return 2;
+		return 4;
+	}
+	
+	class Cell extends StackPane
+	{
+		/* This class Cell creates the individual cells that will go into the main GridPane to show the board. It
+		 * extends StackPane because all I really need them to do is hold a number in the center of the cell, have
+		 * a background color, and be able to have rounded edges. */
+		
+		int number;
+
+		Cell(int number)
+		{
+			/* This constructor receives an integer from the board array and generates the cell that show up in
+			 * the GUI. It sets the the constructed cell's number to be equal to the int passed to the constructor.
+			 * It sets the cell size to 132x132 pixels then creates a Text object containing the number of the cell
+			 * and sets the font.*/
+			this.number = number;
+			this.setPrefSize(132, 132);
+			Text cNum = new Text(""+number);
+			cNum.setFont(font);
+			cNum.setStyle("-fx-font-weight: BOLD; -fx-font-family: sans-serif");
+			/* This switch statement checks the number of the cell and sends the Cell pane to have the number displayed
+			 * (if it isn't zero), the background color set, and the corners rounded. */
+			switch(number)
+			{
+			case 0: 	this.setStyle("-fx-background-color: #CCC0B3;-fx-background-radius: 5;");	break;
+			case 2: 	this.getChildren().add(cNum);
+						this.setStyle("-fx-background-color: #EEE4DA;-fx-background-radius: 5;");	break;
+			case 4: 	this.getChildren().add(cNum);
+						this.setStyle("-fx-background-color: #EDE0C8;-fx-background-radius: 5;");	break;
+			case 8: 	this.getChildren().add(cNum);
+						this.setStyle("-fx-background-color: #F2B179;-fx-background-radius: 5;");	break;
+			case 16: 	this.getChildren().add(cNum);
+						this.setStyle("-fx-background-color: #F59563;-fx-background-radius: 5;");	break;
+			case 32: 	this.getChildren().add(cNum);
+						this.setStyle("-fx-background-color: #F67C5F;-fx-background-radius: 5;");	break;
+			case 64: 	this.getChildren().add(cNum);
+						this.setStyle("-fx-background-color: #F65E3B;-fx-background-radius: 5;");	break;
+			case 128: 	this.getChildren().add(cNum);
+						this.setStyle("-fx-background-color: #EDCF90;-fx-background-radius: 5;");	break;
+			case 256: 	this.getChildren().add(cNum);
+						this.setStyle("-fx-background-color: #EDCC61;-fx-background-radius: 5;");	break;
+			case 512: 	this.getChildren().add(cNum);
+						this.setStyle("-fx-background-color: #EDC850;-fx-background-radius: 5;");	break;
+			case 1024: 	this.getChildren().add(cNum);
+						this.setStyle("-fx-background-color: #EDC53F;-fx-background-radius: 5;");	break;
+			case 2048: 	this.getChildren().add(cNum);
+						this.setStyle("-fx-background-color: #EDC22E;-fx-background-radius: 5;");	break;
+			default: 	this.getChildren().add(cNum);
+						this.setStyle("-fx-background-color: #3C3A32;-fx-background-radius: 5;");	break;
+			}
+		}
+	}
+	
+	public static void main(String[] args)
+	{
+		/*The textbook claims this shouldn't be necessary, but I've been having trouble getting any javafx programs to run 
+		  without it in my Eclipse environment, so I've included this main method which executes Application's launch method*/
+		Application.launch(args);
+	}
+}

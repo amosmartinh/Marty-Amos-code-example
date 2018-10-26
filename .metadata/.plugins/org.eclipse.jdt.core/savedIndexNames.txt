@@ -1,0 +1,6 @@
+INDEX VERSION 1.131+C:\Users\Nitra\Documents\Java Turn in\1510-Amos, Martin\.metadata\.plugins\org.eclipse.jdt.core
+3600829188.index
+908679080.index
+3017952843.index
+46550968.index
+4116547247.index

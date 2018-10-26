@@ -1,0 +1,111 @@
+//This program facilitates playing the game 2048. It uses methods to display the board, to see if a direction can be 
+//moved, to move each direction (by squeezing out zeros and combining cells in that direction), to see if the game
+//has been won, to place a 2 or 4 in a random open space on the board, to see if the game board is in a state in 
+//which no more moves are possible, to display help, to undo the last move, to setup a new game, to save the high
+//score, to load the high score.
+//
+//Author: Martin Amos
+//Course: EECS 1510
+//Instructor: Dr. L. Thomas
+//Date: 27 April 2018
+
+
+import javafx.application.Application;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
+import javafx.scene.Scene;
+import javafx.stage.Stage;
+import javafx.scene.control.*;
+import javafx.scene.layout.GridPane;
+import javafx.scene.layout.VBox;
+import javafx.scene.layout.Background;
+import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.StackPane;
+import javafx.scene.paint.Color;
+
+
+public class GUI2048 extends Application
+{
+	static int[][] board = new int[4][4];
+	static int[][][] undoBoard = new int[10][4][4];
+	
+	@Override //overriding the start method in the Application class
+	public void start(Stage primaryStage)
+	{
+		GridPane gPane = new GridPane();		//This grid pane will display the 4X4 board
+		BorderPane bPane = new BorderPane();	//This border pane will bet set in the scene
+		VBox vBox = new VBox();					//This vbox will contain the necessary buttons
+		Button btHelp = new Button("Help");		
+		Button btExit = new Button("Exit");
+		Button btSave = new Button("Save");
+		Button btLoad = new Button("Load");
+		
+		gPane.setPadding(new Insets(18, 18, 18, 18)); //Set the edge borders to 18 pixels
+		gPane.setHgap(18);
+		gPane.setVgap(18);
+		gPane.setAlignment(Pos.CENTER);
+		gPane.add(new Cell(4), 3, 3);
+		gPane.add(new Cell(8), 3, 2);
+		gPane.add(new Cell(16), 3, 1);
+		gPane.add(new Cell(32), 3, 0);
+		
+		btHelp.setPrefWidth(80);
+		btExit.setPrefWidth(80);
+		btSave.setPrefWidth(80);
+		btLoad.setPrefWidth(80);
+		vBox.getChildren().addAll(btHelp, btSave, btLoad, btExit);
+		
+		bPane.setCenter(gPane);
+		bPane.setLeft(vBox);
+		
+		Scene Game = new Scene(bPane);
+		primaryStage.setTitle("2048");
+		primaryStage.setScene(Game);
+		primaryStage.show();
+	}
+	
+	class Cell extends StackPane
+	{
+		int number;
+		
+		Cell(int number)
+		{
+			this.number = number;
+			this.setPrefWidth(132);
+			this.setPrefHeight(132);
+			super.BackgroundFill(new bgColor(number).background);
+		}
+	}
+	class bgColor
+	{
+		Color background;
+		int number;
+		
+		bgColor(int number)
+		{
+			switch(number)
+			{
+			case 0: 	background = Color.rgb(204, 192, 179);	break;
+			case 2: 	background = Color.rgb(238, 228, 218); 	break;
+			case 4: 	background = Color.rgb(237, 224, 200); 	break;
+			case 8: 	background = Color.rgb(242, 177, 121); 	break;
+			case 16: 	background = Color.rgb(245, 149, 99 ); 	break;
+			case 32: 	background = Color.rgb(246, 124, 95 ); 	break;
+			case 64: 	background = Color.rgb(246, 94 , 59 ); 	break;
+			case 128: 	background = Color.rgb(237, 207, 144); 	break;
+			case 256: 	background = Color.rgb(237, 204, 97 ); 	break;
+			case 512: 	background = Color.rgb(237, 200, 80 ); 	break;
+			case 1024: 	background = Color.rgb(237, 197, 63 ); 	break;
+			case 2048: 	background = Color.rgb(237, 194, 46 ); 	break;
+			default: 	background = Color.rgb(60 , 58 , 50 ); 	break;
+			}
+		}
+	}
+	
+	public static void main(String[] args)
+	{
+		/*The textbook claims this shouldn't be necessary, but I've been having trouble getting any javafx programs to run 
+		  without it in my Eclipse environment, so I've included this main method which executes Application's launch method*/
+		Application.launch(args);
+	}
+}

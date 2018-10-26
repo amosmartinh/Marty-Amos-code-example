@@ -1,0 +1,653 @@
+//This program facilitates playing the game 2048. It uses methods to display the board, to see if a direction can be 
+//moved, to move each direction (by squeezing out zeros and combining cells in that direction), to see if the game
+//has been won, to place a 2 or 4 in a random open space on the board, to see if the game board is in a state in 
+//which no more moves are possible, to display help, to undo the last move, to setup a new game, to save the high
+//score, to load the high score.
+//
+//Author: Martin Amos
+//Course: EECS 1510
+//Instructor: Dr. L. Thomas
+//Date: 27 April 2018
+
+
+import javafx.application.Application;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
+import javafx.scene.Scene;
+import javafx.stage.Stage;
+import javafx.scene.control.*;
+import javafx.scene.layout.GridPane;
+import javafx.scene.layout.VBox;
+import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.StackPane;
+import javafx.scene.text.Text;
+import javafx.scene.text.Font;
+
+
+public class GUI2048 extends Application
+{
+	static int[][] board = new int[4][4];
+	static int[][][] undoBoard = new int[10][4][4];
+	static Font font = new Font(40);
+	static int score = 0, undoScore = 0, movesMade = 0, highScore = 0;
+	static boolean moveMadeSinceUndo = false, gameWon = false;
+	static GridPane gPane = new GridPane();		//This grid pane will display the 4X4 board
+	
+	@Override //overriding the start method in the Application class
+	public void start(Stage primaryStage)
+	{
+		GridPane Scores = new GridPane();		//This grid pane will contain score/move displays
+		BorderPane bPane = new BorderPane();	//This border pane will bet set in the scene
+		VBox vBox = new VBox();					//This vbox will contain the necessary buttons
+		Button btHelp = new Button("Help");		
+		Button btExit = new Button("Exit");
+		Button btSave = new Button("Save");
+		Button btLoad = new Button("Load");
+		
+		setupNewGame();
+		gPane.setPadding(new Insets(18, 18, 18, 18)); //Set the edge borders to 18 pixels
+		gPane.setHgap(18);
+		gPane.setVgap(18);
+		gPane.setAlignment(Pos.CENTER);
+		/* These nested for loops go entry by entry through the array of the board and place each value
+		 * from the array in to a new Cell and put that Cell in the proper place on gPane. aRow/aCol represent 
+		 * array row/column and gRow/gCol represent grid row/column. */
+		for(int gRow = 0, aRow = 0; aRow < 4; gRow++, aRow++)
+		{
+			for(int gCol = 0, aCol = 0; aCol < 4; gCol++, aCol++)
+			{
+				gPane.add(new Cell(board[aRow][aCol]), gCol, gRow);
+			}
+		}
+		
+		Scores.add(new Text("High Score"), 0, 0);
+		Scores.add(new Text("Score"), 1, 0);
+		Scores.add(new Text("Moves"), 2, 0);
+		Scores.add(new Text(""+highScore), 0, 1);
+		Scores.add(new Text(""+score), 1, 1);
+		Scores.add(new Text(""+movesMade), 2, 1);
+		
+		//setting all buttons to have the same preferred size
+		btHelp.setPrefWidth(80);btExit.setPrefWidth(80);btSave.setPrefWidth(80);btLoad.setPrefWidth(80);
+		vBox.getChildren().addAll(btHelp, btSave, btLoad, btExit);
+		
+		bPane.setCenter(gPane);
+		bPane.setLeft(vBox);
+		bPane.setTop(Scores);
+		gPane.setOnKeyTyped( e -> {
+			switch(e.getCode())
+			{
+			case DOWN:	if(canMoveDown()) 	moveDown(); 
+			for(int gRow = 0, aRow = 0; aRow < 4; gRow++, aRow++)
+			{
+				for(int gCol = 0, aCol = 0; aCol < 4; gCol++, aCol++)
+				{
+					gPane.add(new Cell(board[aRow][aCol]), gCol, gRow);
+				}
+			}
+			gPane.requestFocus();
+			break;
+			case UP:	if(canMoveUp()) 	moveUp();	
+			for(int gRow = 0, aRow = 0; aRow < 4; gRow++, aRow++)
+			{
+				for(int gCol = 0, aCol = 0; aCol < 4; gCol++, aCol++)
+				{
+					gPane.add(new Cell(board[aRow][aCol]), gCol, gRow);
+				}
+			}
+			gPane.requestFocus();
+			break;
+			case LEFT:	if(canMoveLeft()) 	moveLeft(); 
+			for(int gRow = 0, aRow = 0; aRow < 4; gRow++, aRow++)
+			{
+				for(int gCol = 0, aCol = 0; aCol < 4; gCol++, aCol++)
+				{
+					gPane.add(new Cell(board[aRow][aCol]), gCol, gRow);
+				}
+			}
+			gPane.requestFocus();
+			break;
+			case RIGHT: if(canMoveRight()) 	moveRight(); 
+			for(int gRow = 0, aRow = 0; aRow < 4; gRow++, aRow++)
+			{
+				for(int gCol = 0, aCol = 0; aCol < 4; gCol++, aCol++)
+				{
+					gPane.add(new Cell(board[aRow][aCol]), gCol, gRow);
+				}
+			}
+			gPane.requestFocus();
+			break;
+			default:
+			}
+		});
+		
+		Scene Game = new Scene(bPane);
+		primaryStage.setTitle("2048");
+		primaryStage.setScene(Game);
+		primaryStage.show();
+		gPane.requestFocus();
+		
+	}
+	
+	public static void setupNewGame()
+	{
+		/* This method prepares the board for a new game by setting all cells to zero, then placing the 2 initial
+		 * numbers. The method then sets movesMade and score to zero.*/
+		
+		for (int row = 0; row < 4; row++)
+			for (int col = 0 ; col < 4; col++)
+				board[row][col] = 0;
+		placeNumbers();
+		placeNumbers();
+		movesMade = 0;
+		score = 0;
+	}
+	
+	public static void placeNumbers()
+	{
+		/* This method randomly picks an open space on the board and populates it with a number from the randomNumber
+		 * method. First the method cycles through the board array counting the numberOfBlanks it finds and recording
+		 * their positions in the array emptySpaces. Once all zero positions have been stored in emptySpaces, it 
+		 * generates a random number RNG from 0 up to the number of zeros 
+		 * found in the game board inclusive. It uses RNG as a position marker for emptySpaces. The location stored at
+		 * emptySpaces[RNG] is where the method places the number returned by randomNumber. */
+		
+		int numberOfBlanks = 0;				// counter for blanks
+		int[] emptySpaces = new int[16]; 		//create array of size equal to number of empty cells found
+		int positionZeroArray = 0, positionGameBoard = 0;
+		for (int row = 0; row < 4; row++)
+		{
+			for (int col = 0; col < 4; col++)
+			{
+				if (board[row][col] == 0) 	//When a zero is found, the location on the game board (0-15) is stored
+				{
+					emptySpaces[positionZeroArray] = positionGameBoard;	//record the board location in the emptySpaces array
+					positionZeroArray++;	//move to the next spot in the emptySpaces array
+					numberOfBlanks++;		//increment the count of blank spaces on the board
+				}
+				positionGameBoard++;	//whether a 0 is found or not, increment the board position counter
+			}
+		}
+		int randomPosition = (int)(Math.random()*numberOfBlanks); //generate a random number up to the numberOfBlanks
+		
+		/* The line below does much of the work of this method. It selects a random open position on the board
+		 * by going to randomPosition in the emptySpaces array which will hold the location of a position on the 
+		 * board that is currently empty. It determines the row by dividing the board position found in the emptySpaces
+		 * array by 4 and casting as an int, and determines the column by getting the value from emptySpaces and 
+		 * taking that value modulo 4 cast as an int. Then it populates that board position with randomNumber method*/
+		
+		board[(int)(emptySpaces[randomPosition]/4)][(int)(emptySpaces[randomPosition]%4)] = randomNumber();
+	} //end of placeNumbers
+	
+	public static int randomNumber()
+	{
+		/* This method generates and returns an int. 90% of the time that int is a 2 and the other 10% of the time
+		 * it is a 4. It does this by creating a random integer from 0 to 9. If that number is less than 9, it returns
+		 * a 2, otherwise it returns a 4.*/
+		
+		int RNG = (int)(Math.random()*10);
+		if (RNG < 9)
+			return 2;
+		return 4;
+	}
+	
+	public static boolean canMoveRight()
+	{
+		/* This method checks the current board state, if right is a possible move it returns true, otherwise it 
+		 * returns false. First it takes the values of the elements of a row and places them into variables so they
+		 * can be easily compared. If any non-zero cell has an empty cell to its right, the board can move right
+		 * and the method returns true. If any non-zero cell contains the same value as the cell to its right then
+		 * the board can move right and the method returns true. If neither of these conditions are met, the method
+		 * checks the next row down in the same way. If the method has check all 4 rows and there was no row that
+		 * could move right, then the method returns false because the board must be in a state where a move right
+		 * is impossible. */
+		
+		for (int row = 0; row < 4; row++)
+		{
+			int A = board[row][0];	//A will hold the value of the left-most cell in the row being examined
+			int B = board[row][1];
+			int C = board[row][2];
+			int D = board[row][3];
+			
+			if ((A != 0 && (B == 0 || C == 0 || D == 0)) || 	//if any non-zero cell has an empty cell to its right
+				(B != 0 && (C == 0 || D == 0)) ||
+				(C != 0 && (D == 0)) ||
+				((A != 0 && A == B) || (B != 0 && B == C) || (C != 0 && C == D))) //or is equal to the cell to its right
+				return true;	//then the board can be moved right
+		}
+		return false;
+	} //end of canMoveRight()
+	
+	public static boolean canMoveLeft()
+	{
+		/* This method checks the current board state, if left is a possible move it returns true, otherwise it 
+		 * returns false. First it takes the values of the elements of a row and places them into variables so they
+		 * can be easily compared. If any non-zero cell has an empty cell to its left, the board can move left
+		 * and the method returns true. If any non-zero cell contains the same value as the cell to its left then
+		 * the board can move left and the method returns true. If neither of these conditions are met, the method
+		 * checks the next row down in the same way. If the method has check all 4 rows and there was no row that
+		 * could move left, then the method returns false because the board must be in a state where a move left
+		 * is impossible. */
+		
+		for (int row = 0; row < 4; row++)
+		{
+			int A = board[row][3];	//A will hold the value of the right-most cell in the row being examined
+			int B = board[row][2];
+			int C = board[row][1];
+			int D = board[row][0];
+			
+			if ((A != 0 && (B == 0 || C == 0 || D == 0)) || 	//if any non-zero cell has an empty cell to its left
+				(B != 0 && (C == 0 || D == 0)) ||
+				(C != 0 && (D == 0)) ||
+				((A != 0 && A == B) || (B != 0 && B == C) || (C != 0 && C == D))) //or is equal to the cell to its left
+				return true;	//then the board can be moved left
+		}
+		return false;
+	} //end of canMoveLeft()
+	
+	public static boolean canMoveDown()
+	{
+		/* This method checks the current board state, if down is a possible move it returns true, otherwise it 
+		 * returns false. First it takes the values of the elements of a column and places them into variables so
+		 * they can be easily compared. If any non-zero cell has an empty cell below it, the column can move down
+		 * and the method returns true. If any non-zero cell contains the same value as the cell below it then
+		 * the column can move down and the method returns true. If neither of these conditions are met, the method
+		 * checks the next column to the right in the same way. If the method has checked all 4 columns and there was 
+		 * no column that could move down, then the method returns false because the board must be in a state where a 
+		 * move down is impossible. */
+		
+		for (int col = 0; col < 4; col++)
+		{
+			int A = board[0][col];	//A will hold the value of the top cell in the column being examined
+			int B = board[1][col];
+			int C = board[2][col];
+			int D = board[3][col];
+			
+			if ((A != 0 && (B == 0 || C == 0 || D == 0)) || 	//if any non-zero cell has an empty cell below it
+				(B != 0 && (C == 0 || D == 0)) ||
+				(C != 0 && (D == 0)) ||
+				((A != 0 && A == B) || (B != 0 && B == C) || (C != 0 && C == D))) //or is equal to the cell below it
+				return true;	//then the board can be moved down
+		}
+		return false;
+	} //end of canMoveDown()
+	
+	public static boolean canMoveUp()
+	{
+		/* This method checks the current board state, if up is a possible move it returns true, otherwise it 
+		 * returns false. First it takes the values of the elements of a column and places them into variables so
+		 * they can be easily compared. If any non-zero cell has an empty cell above it, the column can move up
+		 * and the method returns true. If any non-zero cell contains the same value as the cell above it then
+		 * the column can move up and the method returns true. If neither of these conditions are met, the method
+		 * checks the next column to the right in the same way. If the method has check all 4 columns and there was 
+		 * no column that could move up, then the method returns false because the board must be in a state where a 
+		 * move up is impossible. */
+		
+		for (int col = 0; col < 4; col++)
+		{
+			int A = board[3][col];	//A will hold the value of the bottom cell in the column being examined
+			int B = board[2][col];
+			int C = board[1][col];
+			int D = board[0][col];
+			
+			if ((A != 0 && (B == 0 || C == 0 || D == 0)) || 	//if any non-zero cell has an empty cell above it
+				(B != 0 && (C == 0 || D == 0)) ||
+				(C != 0 && (D == 0)) ||
+				((A != 0 && A == B) || (B != 0 && B == C) || (C != 0 && C == D))) //or is equal to the cell above it
+				return true;	//then the board can be moved up
+		}
+		return false;
+	} //end of canMoveUp()
+	
+	public static void squeezeNumbersRight()
+	{
+		/* This method moves all number towards the right edge of the board, displacing any blank cells to the left.
+		 * It examines a row of the board. If any non-zero cell has a blank cell to its right, they are swapped and 
+		 * a swap counter incremented. The row is examined in this way until no swaps are performed which indicates
+		 * that all blank cells have been forced out to the left. Then the method move to the next row of the array
+		 * and performs operations in this way until all numbers on the board have been squeezed to the right.*/
+		
+		for (int row = 0; row < 4; row++)
+		{
+			int swaps;		//swap counter
+			do
+			{
+				swaps = 0;	//set swap counter to zero
+				int A = board[row][0];	//A is the left-most cell of the row
+				int B = board[row][1];
+				int C = board[row][2];
+				int D = board[row][3];
+				if (A != 0 && B == 0)	{board[row][1] = A; board[row][0] = 0; swaps++;} //If a zero is found to the right
+				if (B != 0 && C == 0)	{board[row][2] = B; board[row][1] = 0; swaps++;} //of any non-zero cell, they are 
+				if (C != 0 && D == 0)	{board[row][3] = C; board[row][2] = 0; swaps++;} //swapped and swaps incremented.
+			}
+			while (swaps != 0); //if any swaps were performed, examine the row again to see if more squeezing is needed
+		}
+	} //end squeezeNumbersRight
+	
+	public static void squeezeNumbersLeft()
+	{
+		/* This method moves all number towards the left edge of the board, displacing any blank cells to the right.
+		 * It examines a row of the board. If any non-zero cell has a blank cell to its left, they are swapped and 
+		 * a swap counter incremented. The row is examined in this way until no swaps are performed which indicates
+		 * that all blank cells have been forced out to the left. Then the method moves to the next row of the array
+		 * and performs operations in this way until all numbers on the board have been squeezed to the left.*/
+		
+		for (int row = 0; row < 4; row++)
+		{
+			int swaps;		//swap counter
+			do
+			{
+				swaps = 0;	//set swap counter to zero
+				int A = board[row][3];	//A is the right-most cell of the row
+				int B = board[row][2];
+				int C = board[row][1];
+				int D = board[row][0];
+				if (A != 0 && B == 0)	{board[row][2] = A; board[row][3] = 0; swaps++;} //If a zero is found to the left
+				if (B != 0 && C == 0)	{board[row][1] = B; board[row][2] = 0; swaps++;} //of any non-zero cell, they are 
+				if (C != 0 && D == 0)	{board[row][0] = C; board[row][1] = 0; swaps++;} //swapped and swaps incremented.
+			}
+			while (swaps != 0); //if any swaps were performed, examine the row again to see if more squeezing is needed
+		}
+	} //end squeezeNumbersLeft
+	
+	public static void squeezeNumbersUp()
+	{
+		/* This method moves all number towards the top edge of the board, displacing any blank cells to the bottom.
+		 * It examines a column of the board. If any non-zero cell has a blank cell above it, they are swapped and 
+		 * a swap counter incremented. The column is examined in this way until no swaps are performed which indicates
+		 * that all blank cells have been forced out to the bottom. Then the method moves to the next column of the array
+		 * and performs operations in this way until all numbers on the board have been squeezed to the top.*/
+
+		for (int col = 0; col < 4; col++)
+		{
+			int swaps;		//swap counter
+			do
+			{
+				swaps = 0;	//set swap counter to zero
+				int A = board[3][col];	//A is the bottom cell of the column
+				int B = board[2][col];
+				int C = board[1][col];
+				int D = board[0][col];
+				if (A != 0 && B == 0)	{board[2][col] = A; board[3][col] = 0; swaps++;} //If a zero is found above
+				if (B != 0 && C == 0)	{board[1][col] = B; board[2][col] = 0; swaps++;} //any non-zero cell, they are 
+				if (C != 0 && D == 0)	{board[0][col] = C; board[1][col] = 0; swaps++;} //swapped and swaps incremented.
+			}
+			while (swaps != 0); //if any swaps were performed, examine the column again to see if more squeezing is needed
+		}
+	} //end squeezeNumbersUp
+
+	public static void squeezeNumbersDown()
+	{
+		/* This method moves all number towards the bottom edge of the board, displacing any blank cells to the top.
+		 * It examines a column of the board. If any non-zero cell has a blank cell below it, they are swapped and 
+		 * a swap counter incremented. The column is examined in this way until no swaps are performed which indicates
+		 * that all blank cells have been forced out to the top. Then the method moves to the next column of the array
+		 * and performs operations in this way until all numbers on the board have been squeezed to the bottom.*/
+		
+		for (int col = 0; col < 4; col++)
+		{
+			int swaps;		//swap counter
+			do
+			{
+				swaps = 0;	//set swap counter to zero
+				int A = board[0][col];	//A is the top cell of the column
+				int B = board[1][col];
+				int C = board[2][col];
+				int D = board[3][col];
+				if (A != 0 && B == 0)	{board[1][col] = A; board[0][col] = 0; swaps++;} //If a zero is found below
+				if (B != 0 && C == 0)	{board[2][col] = B; board[1][col] = 0; swaps++;} //any non-zero cell, they are 
+				if (C != 0 && D == 0)	{board[3][col] = C; board[2][col] = 0; swaps++;} //swapped and swaps incremented.
+			}
+			while (swaps != 0); //if any swaps were performed, examine the column again to see if more squeezing is needed
+		}
+	} //end squeezeNumbersDown
+
+	public static void combineRight()
+	{
+		/* This method merges any adjacent numbers which are equal to each other and adds the value of the 
+		 * merged cell to the score tracker.  The method goes through the array row by row. For each row, it 
+		 * assigns the values of the cells to variables A, B, C, & D for easy comparison. If the method finds 
+		 * that a non-zero cell is equal to the cell to its left, they are merged and the value added to score.
+		 * The operations are performed on the variables representing the cells of the array, so before moving on
+		 * to the next row, the method places the new values of A, B, C, & D back into where they were gathered
+		 * from in the main board.*/
+		
+		for (int row = 0; row < 4; row++)
+		{
+			int A = board[row][0];	//A is the left-most cell of the current row
+			int B = board[row][1];
+			int C = board[row][2];
+			int D = board[row][3];
+			
+			if (D != 0 && C == D) {D = 2*C; C = 0; score += D;} //If a non-zero cell is equal to the cell to its left,
+			if (C != 0 && B == C) {C = 2*B; B = 0; score += C;} //the right cell takes on 2 times the current value of
+			if (B != 0 && A == B) {B = 2*A; A = 0; score += B;} //both cells, the left cell set to 0, and score increased.
+			
+			board[row][0] = A;		//The changed values of A, B, C, & D are placed back into the array.
+			board[row][1] = B;
+			board[row][2] = C;
+			board[row][3] = D;
+		}
+	} //end combineRight
+
+	public static void combineLeft()
+	{
+		/* This method merges any adjacent numbers which are equal to each other and adds the value of the 
+		 * merged cell to the score tracker.  The method goes through the array row by row. For each row, it 
+		 * assigns the values of the cells to variables A, B, C, & D for easy comparison. If the method finds 
+		 * that a non-zero cell is equal to the cell to its right, they are merged and the value added to score.
+		 * The operations are performed on the variables representing the cells of the array, so before moving on
+		 * to the next row, the method places the new values of A, B, C, & D back into where they were gathered
+		 * from in the main board.*/
+		
+		for (int row = 0; row < 4; row++)
+		{
+			int A = board[row][3];	//A is the right-most cell of the current row
+			int B = board[row][2];
+			int C = board[row][1];
+			int D = board[row][0];
+			
+			if (D != 0 && C == D) {D = 2*C; C = 0; score += D;} //If a non-zero cell is equal to the cell to its right,
+			if (C != 0 && B == C) {C = 2*B; B = 0; score += C;} //the left cell takes on 2 times the current value of
+			if (B != 0 && A == B) {B = 2*A; A = 0; score += B;} //both cells, the right cell set to 0, and score increased.
+			
+			board[row][3] = A;		//The changed values of A, B, C, & D are placed back into the array.
+			board[row][2] = B;
+			board[row][1] = C;
+			board[row][0] = D;
+		}
+	} //end combineLeft
+	
+	public static void combineUp()
+	{
+		/* This method merges any vertically adjacent numbers which are equal to each other and adds the value of 
+		 * the merged cell to the score tracker.  The method goes through the array column by column. For each column, 
+		 * it assigns the values of the cells to variables A, B, C, & D for easy comparison. If the method finds 
+		 * that a non-zero cell is equal to the cell below it, they are merged and the value added to score.
+		 * The operations are performed on the variables representing the cells of the array, so before moving on
+		 * to the next column, the method places the new values of A, B, C, & D back into where they were gathered
+		 * from in the main board.*/
+		
+		for (int col = 0; col < 4; col++)
+		{
+			int A = board[3][col];	//A is the bottom cell of the current column
+			int B = board[2][col];
+			int C = board[1][col];
+			int D = board[0][col];
+			
+			if (D != 0 && C == D) {D = 2*C; C = 0; score += D;} //If a non-zero cell is equal to the cell below it,
+			if (C != 0 && B == C) {C = 2*B; B = 0; score += C;} //the upper cell takes on 2 times the current value of
+			if (B != 0 && A == B) {B = 2*A; A = 0; score += B;} //both cells, the lower cell set to 0, and score increased.
+			
+			board[3][col] = A;		//The changed values of A, B, C, & D are placed back into the board array.
+			board[2][col] = B;
+			board[1][col] = C;
+			board[0][col] = D;
+		}
+	} //end combineUp
+
+	public static void combineDown()
+	{
+		/* This method merges any vertically adjacent numbers which are equal to each other and adds the value of 
+		 * the merged cell to the score tracker.  The method goes through the array column by column. For each column, 
+		 * it assigns the values of the cells to variables A, B, C, & D for easy comparison. If the method finds 
+		 * that a non-zero cell is equal to the cell above it, they are merged and the value added to score.
+		 * The operations are performed on the variables representing the cells of the array, so before moving on
+		 * to the next column, the method places the new values of A, B, C, & D back into where they were gathered
+		 * from in the main board.*/
+		
+		for (int col = 0; col < 4; col++)
+		{
+			int A = board[0][col];	//A is the top cell of the current column
+			int B = board[1][col];
+			int C = board[2][col];
+			int D = board[3][col];
+			
+			if (D != 0 && C == D) {D = 2*C; C = 0; score += D;} //If a non-zero cell is equal to the cell above it,
+			if (C != 0 && B == C) {C = 2*B; B = 0; score += C;} //the lower cell takes on 2 times the current value of
+			if (B != 0 && A == B) {B = 2*A; A = 0; score += B;} //both cells, the upper cell set to 0, and score increased.
+			
+			board[0][col] = A;		//The changed values of A, B, C, & D are placed back into the board array.
+			board[1][col] = B;
+			board[2][col] = C;
+			board[3][col] = D;
+		}
+	} //end combineDown
+
+	public static void moveRight()
+	{
+		/* This method executes a move right when requested by the player. It starts by saving the current board state
+		 * so that the user can undo to a position before the move executes. It squeezes out any zero cells to the 
+		 * left using squeezeNumbersRight, then its executes combineLeft to merge any horizontally adjacent equal cells,
+		 * then it executes squeeze again because there is a chance that combineRight introduced zero cells where they
+		 * don't belong.  Finally it calls placeNumbers to place a new 2 or 4 into the board and increments the move
+		 * counter.  Lastly, it sets moveMadeSinceUndo to true so it is known that the move can be undone.*/ 
+		
+		saveForUndo();
+		squeezeNumbersRight();
+		combineRight();
+		squeezeNumbersRight();
+		placeNumbers();
+		movesMade++;
+		moveMadeSinceUndo = true;
+	}
+
+	public static void moveLeft()
+	{
+		/* This method executes a move left when requested by the player. It starts by saving the current board state
+		 * so that the user can undo to a position before the move executes. It squeezes out any zero cells to the 
+		 * right using squeezeNumbersLeft, then its executes combineLeft to merge any horizontally adjacent equal cells,
+		 * then it executes squeeze again because there is a chance that combineLeft introduced zero cells where they
+		 * don't belong.  Finally it calls placeNumbers to place a new 2 or 4 into the board and increments the move
+		 * counter. Lastly, it sets moveMadeSinceUndo to true so it is known that the move can be undone.*/ 
+		
+		saveForUndo();
+		squeezeNumbersLeft();
+		combineLeft();
+		squeezeNumbersLeft();
+		placeNumbers();
+		movesMade++;
+		moveMadeSinceUndo = true;
+	}
+	
+	public static void moveUp()
+	{
+		/* This method executes a move up when requested by the player. It starts by saving the current board state
+		 * so that the user can undo to a position before the move executes. It squeezes out any zero cells to the 
+		 * bottom using squeezeNumbersUp, then its executes combineUp to merge any vertically adjacent equal cells,
+		 * then it executes squeeze again because there is a chance that combineUp introduced zero cells where they
+		 * don't belong.  Finally it calls placeNumbers to place a new 2 or 4 into the board and increments the move
+		 * counter. Lastly, it sets moveMadeSinceUndo to true so it is known that the move can be undone.*/
+		
+		saveForUndo();
+		squeezeNumbersUp();
+		combineUp();
+		squeezeNumbersUp();
+		placeNumbers();
+		movesMade++;
+		moveMadeSinceUndo = true;
+	}
+	
+	public static void moveDown()
+	{
+		/* This method executes a move down when requested by the player. It starts by saving the current board state
+		 * so that the user can undo to a position before the move executes. It squeezes out any zero cells to the 
+		 * top using squeezeNumbersDown, then its executes combineDown to merge any vertically adjacent equal cells,
+		 * then it executes squeeze again because there is a chance that combineDown introduced zero cells where they
+		 * don't belong. Finally it calls placeNumbers to place a new 2 or 4 into the board and increments the move
+		 * counter. Lastly, it sets moveMadeSinceUndo to true so it is known that the move can be undone.*/
+		
+		saveForUndo();
+		squeezeNumbersDown();
+		combineDown();
+		squeezeNumbersDown();
+		placeNumbers();
+		movesMade++;
+		moveMadeSinceUndo = true;
+	}
+	
+	public static void saveForUndo()
+	{
+		
+	}
+	
+	class Cell extends StackPane
+	{
+		/* This class Cell creates the individual cells that will go into the main GridPane to show the board. It
+		 * extends StackPane because all I really need them to do is hold a number in the center of the cell, have
+		 * a background color, and be able to have rounded edges. */
+		
+		int number;
+
+		Cell(int number)
+		{
+			/* This constructor receives an integer from the board array and generates the cell that show up in
+			 * the GUI. It sets the the constructed cell's number to be equal to the int passed to the constructor.
+			 * It sets the cell size to 132x132 pixels then creates a Text object containing the number of the cell
+			 * and sets the font.*/
+			this.number = number;
+			this.setPrefSize(132, 132);
+			Text cNum = new Text(""+number);
+			cNum.setFont(font);
+			cNum.setStyle("-fx-font-weight: BOLD; -fx-font-family: sans-serif");
+			/* This switch statement checks the number of the cell and sends the Cell pane to have the number displayed
+			 * (if it isn't zero), the background color set, and the corners rounded. */
+			switch(number)
+			{
+			case 0: 	this.setStyle("-fx-background-color: #CCC0B3;-fx-background-radius: 5;");	break;
+			case 2: 	this.getChildren().add(cNum);
+						this.setStyle("-fx-background-color: #EEE4DA;-fx-background-radius: 5;");	break;
+			case 4: 	this.getChildren().add(cNum);
+						this.setStyle("-fx-background-color: #EDE0C8;-fx-background-radius: 5;");	break;
+			case 8: 	this.getChildren().add(cNum);
+						this.setStyle("-fx-background-color: #F2B179;-fx-background-radius: 5;");	break;
+			case 16: 	this.getChildren().add(cNum);
+						this.setStyle("-fx-background-color: #F59563;-fx-background-radius: 5;");	break;
+			case 32: 	this.getChildren().add(cNum);
+						this.setStyle("-fx-background-color: #F67C5F;-fx-background-radius: 5;");	break;
+			case 64: 	this.getChildren().add(cNum);
+						this.setStyle("-fx-background-color: #F65E3B;-fx-background-radius: 5;");	break;
+			case 128: 	this.getChildren().add(cNum);
+						this.setStyle("-fx-background-color: #EDCF90;-fx-background-radius: 5;");	break;
+			case 256: 	this.getChildren().add(cNum);
+						this.setStyle("-fx-background-color: #EDCC61;-fx-background-radius: 5;");	break;
+			case 512: 	this.getChildren().add(cNum);
+						this.setStyle("-fx-background-color: #EDC850;-fx-background-radius: 5;");	break;
+			case 1024: 	this.getChildren().add(cNum);
+						this.setStyle("-fx-background-color: #EDC53F;-fx-background-radius: 5;");	break;
+			case 2048: 	this.getChildren().add(cNum);
+						this.setStyle("-fx-background-color: #EDC22E;-fx-background-radius: 5;");	break;
+			default: 	this.getChildren().add(cNum);
+						this.setStyle("-fx-background-color: #3C3A32;-fx-background-radius: 5;");	break;
+			}
+		}
+	}
+	
+	public static void main(String[] args)
+	{
+		/*The textbook claims this shouldn't be necessary, but I've been having trouble getting any javafx programs to run 
+		  without it in my Eclipse environment, so I've included this main method which executes Application's launch method*/
+		Application.launch(args);
+	}
+}

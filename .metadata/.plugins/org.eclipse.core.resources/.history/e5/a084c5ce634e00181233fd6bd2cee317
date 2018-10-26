@@ -1,0 +1,43 @@
+//This program facilitates playing the game 2048. It uses methods to display the board, to see if a direction can be 
+//moved, to move each direction (by squeezing out zeros and combining cells in that direction), to see if the game
+//has been won, to place a 2 or 4 in a random open space on the board, to see if the game board is in a state in 
+//which no more moves are possible, to display help, to undo the last move, to setup a new game, to save the high
+//score, to load the high score.
+//
+//Author: Martin Amos
+//Course: EECS 1510
+//Instructor: Dr. L. Thomas
+//Date: 12 April 2018
+
+
+import java.util.Scanner;
+import java.io.*;
+import javafx.application.Application;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
+import javafx.scene.Scene;
+import javafx.stage.Stage;
+import javafx.scene.control.*;
+import javafx.scene.layout.GridPane;
+import javafx.scene.layout.FlowPane;
+
+
+public class GUI2048 extends Application
+{
+	@Override //overriding the start method in the Application class
+	public void start(Stage primaryStage)
+	{
+		GridPane Grid = new GridPane();
+		Grid.setAlignment(Pos.CENTER);
+		Grid.setPadding(new Insets(18, 18, 18, 18));
+		Grid.setHgap(18);
+		Grid.setVgap(18);
+		
+		Grid.add(new Label("test"), 0, 0);
+		
+		Scene Game = new Scene(Grid);
+		primaryStage.setScene(Game);
+		primaryStage.show();
+		
+	}
+}
